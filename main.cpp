@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstdio>
 #include <cassert>
+#include <Windows.h>
 
 #include <HD/hd.h>
 
@@ -36,20 +37,8 @@ struct DeviceDisplayState
 	hduVector3Dd velocity;
 	
 };
-DeviceDisplayState state;
+static DeviceDisplayState state;
 HDdouble timer = 0;
-
-//HDCallbackCode HDCALLBACK DeviceStateCallback(void *pUserData)
-//{
-//    DeviceDisplayState *pDisplayState = 
-//        static_cast<DeviceDisplayState *>(pUserData);
-	
- //   hdGetDoublev(HD_CURRENT_POSITION, pDisplayState->position);
- //   hdGetDoublev(HD_CURRENT_FORCE, pDisplayState->force);
-	//hdGetDoublev(HD_CURRENT_VELOCITY, pDisplayState ->velocity );
-//    // execute this only once.
-//    return HD_CALLBACK_DONE;
-//}
 
 hduVector3Dd project(const hduVector3Dd &a, const hduVector3Dd &b)
 {
@@ -86,16 +75,15 @@ void displayFunction(void)
     GLUquadricObj* pQuadObj = gluNewQuadric();
     drawSphere(pQuadObj, hduVector3Dd (0,0,0), fixedSphereColor, sphereBig );
 	
+	// Do code here to grab position
+
     // hdScheduleSynchronous(DeviceStateCallback, &state,
     //                    HD_MIN_SCHEDULER_PRIORITY);
 	static const float dynamicSphereColor[4] = { .8, .2, .2, .8 };
 	//hduVector3Dd currentPos= getVirtual(state.velocity );
-	
-	hduVector3Dd currentPos(60,60,60);
 
 	drawSphere(pQuadObj,
-               //state.position,
-               currentPos,
+               state.position,
                dynamicSphereColor,
                sphereSmall);	
 	
@@ -107,11 +95,11 @@ void displayFunction(void)
     drawHapticsString(label3, hduVector3Dd(width *-0.9,height*0.7,0), 0.1, mau);
     drawHapticsString(label4, hduVector3Dd(width *-0.9,height*0.6,0), 0.1, mau);
     
-	hduVector3Dd forceVector = forceField(currentPos);
+	hduVector3Dd forceVector = forceField(state.position);
     
 
     drawForceVector(pQuadObj,
-                    currentPos,
+					state.position,
                     forceVector,
                     sphereSmall*.1);
 
@@ -191,69 +179,48 @@ hduVector3Dd calculateF(hduVector3Dd nguon, hduVector3Dd &origin, double radi)
 
 
 hduVector3Dd remVec(0,0,0);
-//HDCallbackCode HDCALLBACK CoulombCallback(void *data)
-//{
-//    HHD hHD = hdGetCurrentDevice();
-//	HDdouble instRate;
-//    hduVector3Dd force(0,0,0);
-//	
-//    hdBeginFrame(hHD);
-//	
-//	hdGetDoublev(HD_INSTANTANEOUS_UPDATE_RATE, &instRate);
-//
-//	timer += 1.0 / instRate;
-//	hduVector3Dd pos;
-//	hdGetDoublev (HD_CURRENT_POSITION, pos);
-//    
-//	hduVector3Dd layforce=calculateF(pos,
-//			hduVector3Dd(0,0.0,0),
-//			sphereBig );
-//	if (layforce.magnitude()>0.01*sphereBig 
-//		&& timer>0.5
-//		) //penetrate more than 1% and 5 seconds has passed
-//	{
-//		timer=0;
-//		hdGetDoublev (HD_CURRENT_VELOCITY, remVec);
-//	}	
-//	force=am * remVec *exp(-B*timer) * sin(timer * freg);
-//	
-//
-//	hduVector3Dd tam;
-//	hdGetDoublev(HD_NOMINAL_MAX_FORCE, tam);
-//	sprintf(label1, "Current Force: %.4f",force.magnitude());
-//	hdGetDoublev(HD_SOFTWARE_VELOCITY_LIMIT, tam);
-//	//sprintf(label3, "Current exponential: %.4f",exp(-B*timer));
-//	sprintf(label4, "Current timer: %.4f", timer);
-//	sprintf(label2, "Current Hook Force: %.4f",layforce.magnitude());
-//	
-//	force=force+ K* layforce	;
-//	
-//	if (force.magnitude()>1)
-//	force= force/force.magnitude();
-//		
-//	hdSetDoublev(HD_CURRENT_FORCE, force);
-//    
-//	hdEndFrame(hHD);
-//
-//    //HDErrorInfo error;
-//    //if (HD_DEVICE_ERROR(error = hdGetError()))
-//    //{
-//    //    hduPrintError(stderr, &error, "Error during scheduler callback");
-//    //    if (hduIsSchedulerError(&error))
-//    //    {
-//    //        return HD_CALLBACK_DONE;
-//    //    }
-//    //}
-//
-//	
-//    return HD_CALLBACK_CONTINUE;
-//	
-//}
+hduVector3Dd CoulombCallback(hduVector3Dd pos, hduVector3Dd remVec)
+{
+	HDdouble instRate;
+    hduVector3Dd force(0,0,0);
+		
+	timer += 1.0 / 1000;
+    
+	hduVector3Dd layforce=calculateF(pos,
+			hduVector3Dd(0,0.0,0),
+			sphereBig );
+	if (layforce.magnitude()>0.01*sphereBig 
+		&& timer>0.5
+		) //penetrate more than 1% and 5 seconds has passed
+	{
+		timer=0;
+	}	
+	force=am * remVec *exp(-B*timer) * sin(timer * freg);
+	
+
+	sprintf(label1, "Current Force: %.4f",force.magnitude());
+	//sprintf(label3, "Current exponential: %.4f",exp(-B*timer));
+	sprintf(label4, "Current timer: %.4f", timer);
+	sprintf(label2, "Current Hook Force: %.4f",layforce.magnitude());
+	
+	force=force+ K* layforce	;
+	
+	if (force.magnitude()>1)
+	force= force/force.magnitude();
+
+	return force;
+}
+
+DWORD WINAPI ThreadedLoop( LPVOID lpParam ) 
+{
+	glutMainLoop();
+	return 0; // Never happens
+}
 
 /*******************************************************************************
  Schedules the coulomb force callback.
 *******************************************************************************/
-void CoulombForceField()
+HANDLE CoulombForceField()
 {
     std::cout << "haptics callback" << std::endl;
     //gSchedulerCallback = hdScheduleAsynchronous(
@@ -269,9 +236,12 @@ void CoulombForceField()
     //}
 
     std::cout << "graphics callback" << std::endl;
-
-    glutMainLoop(); // Enter GLUT main loop.
+	glutMainLoop();
+    return CreateThread(NULL, 0, ThreadedLoop, NULL, 0, NULL);
+	//glutMainLoop(); // Enter GLUT main loop.
 }
+
+
 
 /******************************************************************************
  This handler gets called when the process is exiting. Ensures that HDAPI is
@@ -300,7 +270,7 @@ void keyboard(unsigned char bam, int x, int y)
 /******************************************************************************
  Main function.
 ******************************************************************************/
-int main(int argc, char* argv[])
+int initGraphics(int argc, char* argv[])
 {
     HDErrorInfo error;
 
@@ -349,9 +319,34 @@ int main(int argc, char* argv[])
 
     // Application loop.
     CoulombForceField();
-
-    printf("Done\n");
-    return 0;
+	return 0;
 }
+
+char* GetForce(float x, float y, float z, float vx, float vy, float vz)
+{
+	hduVector3Dd pos, velocity, force;
+
+	pos = hduVector3Dd(x,y,z);
+	velocity = hduVector3Dd(vx, vy, vz);
+	force = calculateF(pos, hduVector3Dd(0,0,0), sphereBig) * -1;
+
+	char buf[80];
+	sprintf(buf, "f(%f,%f,%f)", force[0], force[1], force[2]);
+	return buf;
+}
+
+void DefineState(float x, float y, float z, float vx, float vy, float vz)
+{
+	hduVector3Dd pos, velocity, force;
+
+	pos = hduVector3Dd(x,y,z);
+	velocity = hduVector3Dd(vx, vy, vz);
+	force = calculateF(pos, hduVector3Dd(0,0,0), sphereBig);
+
+	state.force = force;
+	state.position = pos;
+	state.velocity = velocity;
+}
+
 
 /******************************************************************************/
