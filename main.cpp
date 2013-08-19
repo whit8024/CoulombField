@@ -328,7 +328,7 @@ char* GetForce(float x, float y, float z, float vx, float vy, float vz)
 
 	pos = hduVector3Dd(x,y,z);
 	velocity = hduVector3Dd(vx, vy, vz);
-	force = calculateF(pos, hduVector3Dd(0,0,0), sphereBig) * -1;
+	force = calculateF(pos, hduVector3Dd(0,0,0), sphereBig) * 5;
 
 	char buf[80];
 	sprintf(buf, "f(%f,%f,%f)", force[0], force[1], force[2]);
