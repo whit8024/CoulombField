@@ -3,13 +3,19 @@
 #include <cstdio>
 #include <cassert>
 #include <Windows.h>
-
 #include <HD/hd.h>
-
+#include <map>
+#include <stdio.h>
 #include "helper.h"
 
 #include <HDU/hduError.h>
 #include <HDU/hduVector.h>
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#define THREASHOLD 0.1
 
 static double sphereSmall = 12.0;
 static double sphereBig = 50;
@@ -19,6 +25,8 @@ int width, height;
 static HHD ghHD = HD_INVALID_HANDLE;
 static HDSchedulerHandle gSchedulerCallback = HD_INVALID_HANDLE;
 float initX = 50;
+std::map<ULONG, hduVector3Dd> lastForce;
+
 /* Glut callback functions used by helper.cpp */
 void displayFunction(void);
 void handleIdle(void);
@@ -334,6 +342,41 @@ char* GetForce(float x, float y, float z, float vx, float vy, float vz)
 	sprintf(buf, "f(%f,%f,%f)", force[0], force[1], force[2]);
 	return buf;
 }
+
+
+char* GetForceJnd(ULONG ip, float x, float y, float z, float vx, float vy, float vz)
+{
+	hduVector3Dd pos, velocity, force;
+	pos = hduVector3Dd(x,y,z);
+	velocity = hduVector3Dd(vx, vy, vz);
+	force = calculateF(pos, hduVector3Dd(0,0,0), sphereBig) * 5;
+
+	if(lastForce.count(ip))
+	{
+		float dX = lastForce[ip][0] ? abs((lastForce[ip][0] - force[0]) / lastForce[ip][0]) : lastForce[ip][0] != force[0];
+
+		if (dX < THREASHOLD)
+		{
+			float dY = lastForce[ip][1] ? abs((lastForce[ip][1] - force[1]) / lastForce[ip][1]): lastForce[ip][1] != force[1];
+			
+			if (dY < THREASHOLD)
+			{
+				float dZ = lastForce[ip][2] ? abs((lastForce[ip][2] - force[2]) / lastForce[ip][2]): lastForce[ip][2] != force[2];
+
+				if (dZ < THREASHOLD)
+				{
+					return NULL;
+				}
+			}
+		}
+	}
+
+	char buf[80];
+	sprintf(buf, "f(%f,%f,%f)", force[0], force[1], force[2]);
+	lastForce[ip] = force;
+	return buf;
+}
+
 
 void DefineState(float x, float y, float z, float vx, float vy, float vz)
 {
