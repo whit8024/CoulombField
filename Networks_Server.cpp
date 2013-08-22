@@ -32,6 +32,7 @@ using namespace std;
 int initGraphics(int argc, char* argv[]);
 void DefineState(float x, float y, float z, float vx, float vy, float vz);
 char* GetForce(float x, float y, float z, float vx, float vy, float vz);
+char* GetForceJnd(ULONG ip, float x, float y, float z, float vx, float vy, float vz);
 // END function from main.cpp
 
 
@@ -130,12 +131,18 @@ DWORD WINAPI ConnectionLoop( LPVOID lpParam )
 
 		// Force data
 		memset(buf,'\0', DEFAULT_BUFLEN);
-		strcpy(buf, GetForce(x,y,z,vx,vy,vz));
+		
+		char* force = GetForceJnd(send.sin_addr.S_un.S_addr, x, y, z, vx, vy, vz);
 
-		if (sendto(out, buf, sizeof(buf), 0, (struct sockaddr*) &send, slen) == SOCKET_ERROR)
+		if (force != NULL)
 		{
-				printf("sendto() failed with error code : %d" , WSAGetLastError());
-		   exit(EXIT_FAILURE);
+			strcpy(buf, force);
+
+			if (sendto(out, buf, sizeof(buf), 0, (struct sockaddr*) &send, slen) == SOCKET_ERROR)
+			{
+					printf("sendto() failed with error code : %d" , WSAGetLastError());
+			   exit(EXIT_FAILURE);
+			}
 		}
 	}
  
