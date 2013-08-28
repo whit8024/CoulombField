@@ -35,6 +35,8 @@ char* GetForce(float x, float y, float z, float vx, float vy, float vz);
 char* GetForceJnd(ULONG ip, float x, float y, float z, float vx, float vy, float vz);
 // END function from main.cpp
 
+int totalResponses = 0;
+int jndResponses = 0;
 
 DWORD WINAPI ConnectionLoop( LPVOID lpParam ) 
 {
@@ -134,8 +136,11 @@ DWORD WINAPI ConnectionLoop( LPVOID lpParam )
 		
 		char* force = GetForceJnd(send.sin_addr.S_un.S_addr, x, y, z, vx, vy, vz);
 
+		totalResponses++;
+
 		if (force != NULL)
 		{
+			jndResponses++;
 			strcpy(buf, force);
 
 			if (sendto(out, buf, sizeof(buf), 0, (struct sockaddr*) &send, slen) == SOCKET_ERROR)
